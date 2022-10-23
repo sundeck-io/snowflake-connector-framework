@@ -1,0 +1,3 @@
+name: athena
+description: A Snowflake to Mysql Query Program (via Athena)
+runtime: nodejs

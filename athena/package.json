@@ -1,0 +1,19 @@
+{
+    "name": "athena",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^14"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^5.0.0",
+        "@pulumi/aws-apigateway": "^0.0.11",
+        "@pulumi/aws-native": "^0.38.0",
+        "@pulumi/awsx": "^0.40.1",
+        "@pulumi/pulumi": "^3.0.0",
+        "@pulumi/random": "^4.8.2",
+        "@pulumi/snowflake": "^0.14.0",
+        "@types/snowflake-sdk": "^1.6.8",
+        "snowflake-promise": "^4.5.0",
+        "snowflake-sdk": "^1.6.14"
+    }
+}
