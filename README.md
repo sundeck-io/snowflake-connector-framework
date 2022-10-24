@@ -4,6 +4,11 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
 
 1. Ensure you're logged into AWS and your credentials are setup correctly. 
 1. Install Pulumi ([instructions](https://www.pulumi.com/docs/get-started/install/))
+1. Configure pulumi for first use.
+   ```bash
+   # Configure with local settings. You could also configure with Pulumi cloud but that takes more time. 
+   pulumi login --local
+   ```
 1. Install node/npm ([instructions](https://nodejs.org/en/download/))
 1. Clone the repository and install the required NPM packages.
    ```
@@ -19,15 +24,39 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
    ```
 1. Setup AWS & Snowflake 
    ```bash
-   # During execution, it will prompt you one or more times to log into Snowflake via your browser.
-   # Most of the operations are quick but the creation of a MySQL RDS instance can take a little while (1-2 minutes)  
+   # During execution, pulumi will prompt you one or more times to login to Snowflake via browser.
+   # Most of the operations are quick but the following take a while:
+   #
+   # *  Creation of a MySQL RDS instance takes 2-3 minutes.
+   # *  Deployment of MySQL Athena connector Lambda takes 2-3 minutes.
+   # 
+   # Unfortunately, since the lambda connector needs info from the RDS instance post 
+   # deploy (connection string), they have to run serially.  
+   #
+   # Note: If you see any Snowflake operations taking more than a couple seconds, that typically 
+   # means you've missed a login window. Check all your tabs!
+   #
    pulumi up -y
    ```
 1. Go into Snowflake Snowsight (or your preferred SQL tool).
 1. Execute a query in Snowflake against your new MySQL instance.
    ```sql
    use snowflake_connectors.athena;
-   select count(*) from table(query_athena($$ select count(*) from mysql.information_schema.tables$$));
+   select * from table(query_athena($$ 
+     select * from mysql.information_schema.tables
+   $$, 100));
+   ```
+1. By default, all data comes back as a variant column. This is due to the fact that a UDTF needs to have schema declared and creation time. As such, our declared schema is a single variant column called `data`. If you want to make things more typed, you can create a view on top of your table function invocation. For example:
+   ```sql
+   CREATE VIEW mysql_information_schema_tables AS 
+   SELECT 
+       data:table_catalog::text AS table_catalog,
+       data:table_schema::text AS table_schema,
+       data:table_name::text AS table_name,
+       data:table_type::text AS table_type
+   FROM TABLE(query_athena($$ 
+         SELECT * FROM mysql.information_schema.tables
+       $$, 100)); 
    ```
 
 How does this all work?

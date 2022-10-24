@@ -12,7 +12,7 @@ import {GenericSnowflake} from "./snowflake/SnowflakeGenericProvider";
 const functionInvocationRoleName = "SNOWFLAKE_CONNECTOR_INBOUND_REST_ROLE";
 const athenaRoleName = "SNOWFLAKE_CONNECTOR_ASSUME_ATHENA";
 const connectorsDatabaseName = "SUNDECK_CONNECTORS";
-const lambdaFunctionName = "mysql2";
+const lambdaFunctionName = "mysql";
 ///////////////////////////////////////////////////////////////////////////
 
 const identity = aws.getCallerIdentity({});
@@ -72,20 +72,7 @@ const athenaRole = new aws.iam.Role("athena.role", {
 const restApi = new aws.apigateway.RestApi("rest.api", {
         endpointConfiguration: {
             types: "REGIONAL"
-        },
-        policy: pulumi.all([currentAccount, functionInvocationRoleName]).apply(([accountId, role]) => JSON.stringify({
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": {
-                        "AWS": `arn:aws:sts::${accountId}:assumed-role/${role}/snowflake`
-                    },
-                    "Action": "execute-api:Invoke",
-                    "Resource": "arn:aws:execute-api:us-west-2:577407151357:*/*",
-                    "Condition": {}
-                }]
-        }))
+        }
     }
 );
 
@@ -114,6 +101,22 @@ const snowflakeExternalFunctionInvocationRole = new aws.iam.Role("rest.snowflake
                 }
             }
         }],
+    }))
+});
+
+const restApiPolicy = new aws.apigateway.RestApiPolicy("rest.apiPolicy", {
+    restApiId: restApi.id,
+    policy: pulumi.all([currentAccount, snowflakeExternalFunctionInvocationRole.name, restApi.arn]).apply(([accountId, role, arn]) => JSON.stringify({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": `arn:aws:sts::${accountId}:assumed-role/${role}/snowflake`
+                },
+                "Action": "execute-api:Invoke",
+                "Resource": arn + "/*"
+            }]
     }))
 });
 
