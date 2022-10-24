@@ -386,7 +386,7 @@ const apiPolicy = new aws.apigateway.RestApiPolicy("rest.snowflakePolicy", {
     Statement: [{
         "Effect": "Allow",
         "Principal": {
-            "AWS": `arn:aws:sts::${accountId}:assumed-role/SNOWFLAKE_CONNECTOR_INBOUND_REST_ROLE/snowflake`
+            "AWS": `arn:aws:sts::${accountId}:assumed-role/${functionInvocationRoleName}/snowflake`
         },
         "Action": "execute-api:Invoke",
         "Resource": `arn:aws:execute-api:${currentRegion}:${accountId}:${apiGatewayId}/prod/POST/athena`
@@ -439,5 +439,3 @@ const queryFunction = new GenericSnowflake("snowflake.athenaQueryUDTF", {
 function file(fileName: string): string {
     return fs.readFileSync(fileName, 'utf8');
 }
-
-
