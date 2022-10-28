@@ -49,7 +49,7 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
      select * from mysql.information_schema.tables
    $$, 100));
    ```
-1. By default, all data comes back as a variant column. This is due to the fact that a UDTF needs to have schema declared and creation time. As such, our declared schema is a single variant column called `data`. If you want to make things more typed, you can create a view on top of your table function invocation. For example:
+1. By default, all data comes back as a variant column. This is due to the fact that a UDTF needs to have schema declared at creation time. As such, our declared schema is a single variant column called `data`. If you want to make things more typed, you can create a view on top of your table function invocation. For example:
    ```sql
    CREATE VIEW mysql_information_schema_tables AS 
    SELECT 
