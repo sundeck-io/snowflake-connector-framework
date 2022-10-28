@@ -1,8 +1,8 @@
 # Querying MySQL (or any Athena source) from Snowflake
 
-This directory holds a pulumi deployment that allows Snowflake users to query MySQL. To deploy:
+This directory holds a pulumi deployment that allows Snowflake users to query MySQL.
 
-## Deploy
+## Deploy AWS & Snowflake Assets
 1. Ensure you're logged into AWS and your credentials are setup correctly. 
 1. Install Pulumi ([instructions](https://www.pulumi.com/docs/get-started/install/))
 1. Configure pulumi for first use.
@@ -40,7 +40,7 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
    pulumi up -y
    ```
    
-## Use
+## Query MySQL (or any Athena source)
 1. Go into Snowflake Snowsight (or your preferred SQL tool).
 1. Execute a query in Snowflake against your new MySQL instance.
    ```sql
