@@ -2,6 +2,7 @@
 
 This directory holds a pulumi deployment that allows Snowflake users to query MySQL. To deploy:
 
+## Deploy
 1. Ensure you're logged into AWS and your credentials are setup correctly. 
 1. Install Pulumi ([instructions](https://www.pulumi.com/docs/get-started/install/))
 1. Configure pulumi for first use.
@@ -38,6 +39,8 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
    #
    pulumi up -y
    ```
+   
+## Use
 1. Go into Snowflake Snowsight (or your preferred SQL tool).
 1. Execute a query in Snowflake against your new MySQL instance.
    ```sql
@@ -59,18 +62,17 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
        $$, 100)); 
    ```
 
-How does this all work?
-: See our [blog post](https://sundeck.io/blog/query_mysql_with_snowflake) on the topic!
-
-What is Pulumi?
-: Pulumi is a infrastructure automation tool, similar to Terraform or AWS CloudFormation.
-
-Why use Pulumi?
-: In order to deploy an external function, there is some back and forth between AWS and Snowflake. (You need take information from each and give it to the other). Rather than make people go through a bunch of steps, Pulumi allows us to automatically move the configuration between the two systems to make it easier to setup an external function.
-
-What if I want to configure things manually?
-: Pulumi is largely declarative. Most of the deployment code should readable even if you've never used Pulumi
-
-What does Sundeck do?
-: We're working on some new ways to enhance Snowflake. More coming soon. Go to our [website](https://sundeck.io) and sign up for our mailing list to hear more as we progress.
+## Frequently Asked Questions
+<dl>
+   <dt>How does this all work?</dt>
+   <dd>See our [blog post](https://sundeck.io/blog/query_mysql_with_snowflake) on the topic!</dd>
+   <dt>What is Pulumi?</dt>
+   <dd>Pulumi is a infrastructure automation tool, similar to Terraform or AWS CloudFormation.</dd>
+   <dt>Why use Pulumi?</dt>
+   <dd>In order to deploy an external function, there is some back and forth between AWS and Snowflake. (You need take information from each and give it to the other). Rather than make people go through a bunch of steps, Pulumi allows us to automatically move the configuration between the two systems to make it easier to setup an external function.</dd>
+    <dt>What if I want to configure things manually?</dt>
+    <dd>Pulumi is largely declarative. Most of the deployment code should readable even if you've never used Pulumi</dd>
+   <dt>What does Sundeck do?</dt>
+<dd>We're working on some new ways to enhance Snowflake. More coming soon. Go to our [website](https://sundeck.io) and sign up for our mailing list to hear more as we progress.</dd>
+</dl>
 
