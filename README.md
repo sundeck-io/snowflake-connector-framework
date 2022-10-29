@@ -65,7 +65,7 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
 ## Frequently Asked Questions
 <dl>
    <dt>How does this all work?</dt>
-   <dd>See our [blog post](https://sundeck.io/blog/query_mysql_with_snowflake) on the topic!</dd>
+   <dd>See our <a href="https://sundeck.io/blog/query_mysql_with_snowflake">Blog post</a> on the topic!</dd>
    <dt>What is Pulumi?</dt>
    <dd>Pulumi is a infrastructure automation tool, similar to Terraform or AWS CloudFormation.</dd>
    <dt>Why use Pulumi?</dt>
