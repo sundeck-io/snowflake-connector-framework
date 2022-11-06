@@ -1,6 +1,6 @@
-# Querying MySQL (or any Athena source) from Snowflake
+# A Source Connector Framework for MySQL
 
-This directory holds a pulumi deployment that allows Snowflake users to query MySQL.
+This directory holds a pulumi deployment that allows Snowflake users to query alternative sources (specifically MySQL). You can learn more about this by reading our series of [blog posts](https://www.sundeck.io/blog/creating-a-source-connector-framework-for-snowflake) 
 
 ## Deploy AWS & Snowflake Assets
 1. Ensure you're logged into AWS and your credentials are setup correctly. 
@@ -13,7 +13,7 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
 1. Install node/npm ([instructions](https://nodejs.org/en/download/))
 1. Clone the repository and install the required NPM packages.
    ```
-   git clone https://github.com/sundeck-io/snowflake-connectors.git
+   git clone https://github.com/sundeck-io/snowflake-connector-framework.git
    npm update
    ```
    
@@ -65,7 +65,7 @@ This directory holds a pulumi deployment that allows Snowflake users to query My
 ## Frequently Asked Questions
 <dl>
    <dt>How does this all work?</dt>
-   <dd>See our <a href="https://sundeck.io/blog/query_mysql_with_snowflake">Blog post</a> on the topic!</dd>
+   <dd>See our <a href="https://www.sundeck.io/blog/creating-a-source-connector-framework-for-snowflake">Blog post</a> on the topic!</dd>
    <dt>What is Pulumi?</dt>
    <dd>Pulumi is a infrastructure automation tool, similar to Terraform or AWS CloudFormation.</dd>
    <dt>Why use Pulumi?</dt>
