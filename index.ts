@@ -10,7 +10,6 @@ import {GenericSnowflake} from "./snowflake/SnowflakeGenericProvider";
 ///////////////////////////////////////////////////////////////////////////
 // Default names for objects.
 const functionInvocationRoleName = "SNOWFLAKE_CONNECTOR_INBOUND_REST_ROLE";
-const athenaRoleName = "SNOWFLAKE_CONNECTOR_ASSUME_ATHENA";
 const connectorsDatabaseName = "SUNDECK_CONNECTORS";
 const lambdaFunctionName = "mysql";
 ///////////////////////////////////////////////////////////////////////////
@@ -38,20 +37,7 @@ const blockS3PublicAccess = new aws.s3.BucketPublicAccessBlock("athenaResultsBlo
 const db = new snowflake.Database("snowflake.database", {name: connectorsDatabaseName});
 const schema = new snowflake.Schema("snowflake.schema", {database: db.name, name: "ATHENA"});
 
-// Create a role that will be applied to api requests so that they can use Athena
-const athenaRole = new aws.iam.Role("athena.role", {
-    name: athenaRoleName,
-    assumeRolePolicy: JSON.stringify({
-        Version: "2012-10-17",
-        Statement: [        {
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "apigateway.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-        }],}),
-    managedPolicyArns: ["arn:aws:iam::aws:policy/AmazonAthenaFullAccess"],
-    inlinePolicies: [{name: "allow-s3-bucket-access", policy: pulumi.all([athenaResultsBucket.arn]).apply((arn) => JSON.stringify({
+const athenaPolicy = new aws.iam.Policy("athena.policy", {policy: pulumi.all([athenaResultsBucket.arn]).apply((arn) => JSON.stringify({
             Version: "2012-10-17",
             Statement: [{
                 "Sid": "VisualEditor0",
@@ -65,7 +51,19 @@ const athenaRole = new aws.iam.Role("athena.role", {
                 ],
                 "Resource": arn + "/*"
             }],
-        }))}]
+        }))});
+// Create a role that will be applied to api requests so that they can use Athena
+const athenaRole = new aws.iam.Role("athena.role", {
+    assumeRolePolicy: JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "apigateway.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }],}),
+    managedPolicyArns: ["arn:aws:iam::aws:policy/AmazonAthenaFullAccess", athenaPolicy.arn],
 });
 
 // Create the api gateway we'll call.
@@ -195,22 +193,7 @@ const mysql = new aws.rds.Instance("mysql.t3micro", {
     username: "root",
 });
 
-// create a new role for the lambda that will be used as the
-const athenaLambdaRole = new aws.iam.Role("lambda.mysqlConnectorRole", {
-    namePrefix: "athenaMysqlLambda",
-    assumeRolePolicy: JSON.stringify({
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "Service": "lambda.amazonaws.com"
-                },
-                "Action": "sts:AssumeRole"
-            }
-        ]
-    }),
-    inlinePolicies: [{name: "athenamysql", policy: pulumi.all([currentRegion, currentAccount, athenaResultsBucket.bucket]).apply(([region, account, bucket]) => JSON.stringify({
+const athenaLambdaPolicy = new aws.iam.Policy("lambda.mysqlConnectorPolicy", {policy: pulumi.all([currentRegion, currentAccount, athenaResultsBucket.bucket]).apply(([region, account, bucket]) => JSON.stringify({
             Version: "2012-10-17",
             Statement: [
                 {
@@ -280,7 +263,23 @@ const athenaLambdaRole = new aws.iam.Role("lambda.mysqlConnectorRole", {
                     "Resource": "*"
                 }
                 ],
-        }))}]
+        }))});
+// create a new role for the lambda that will be used as the
+const athenaLambdaRole = new aws.iam.Role("lambda.mysqlConnectorRole", {
+    namePrefix: "athenaMysqlLambda",
+    assumeRolePolicy: JSON.stringify({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+            }
+        ]
+    }),
+    managedPolicyArns: [athenaLambdaPolicy.arn]
 });
 
 const variables =  {
@@ -348,6 +347,7 @@ const snowflakeExternalFunctionInvocationRole = new aws.iam.Role("rest.snowflake
     assumeRolePolicy: pulumi.all([snowflakeApiIntegration.apiAwsIamUserArn, snowflakeApiIntegration.apiAwsExternalId]).apply(([role, externalId]) => JSON.stringify({
         Version: "2012-10-17",
         Statement: [{
+            "Sid": "",
             "Effect": "Allow",
             "Principal": {
                 "AWS": role
@@ -360,39 +360,8 @@ const snowflakeExternalFunctionInvocationRole = new aws.iam.Role("rest.snowflake
             }
         }],
     }))
-}, {dependsOn: snowflakeApiIntegration});
+});
 
-const restApiPolicy = new aws.apigateway.RestApiPolicy("rest.apiPolicy", {
-    restApiId: restApi.id,
-    policy: pulumi.all([currentAccount, snowflakeExternalFunctionInvocationRole.name, restApi.arn]).apply(([accountId, role, arn]) => JSON.stringify({
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": `arn:aws:sts::${accountId}:assumed-role/${role}/snowflake`
-                },
-                "Action": "execute-api:Invoke",
-                "Resource": arn + "/*"
-            }]
-    }))
-}, {dependsOn: [prodStage, snowflakeExternalFunctionInvocationRole, restApi]});
-
-
-const apiPolicy = new aws.apigateway.RestApiPolicy("rest.snowflakePolicy", {
-  restApiId:  restApi.id,
-  policy: pulumi.all([currentAccount, restApi.id, currentRegion, snowflakeExternalFunctionInvocationRole.name]).apply(([accountId, apiGatewayId, currentRegion, invocationRole]) => JSON.stringify({
-    Version: "2012-10-17",
-    Statement: [{
-        "Effect": "Allow",
-        "Principal": {
-            "AWS": `arn:aws:sts::${accountId}:assumed-role/${invocationRole}/snowflake`
-        },
-        "Action": "execute-api:Invoke",
-        "Resource": `arn:aws:execute-api:${currentRegion}:${accountId}:${apiGatewayId}/prod/POST/athena`
-    }]
-  }))
-}, {dependsOn: [prodStage, snowflakeExternalFunctionInvocationRole]});
 
 const athenaExternalFunction = new GenericSnowflake("snowflake.athenaExternalFunction", {
     type: "EXTERNAL FUNCTION",
@@ -434,6 +403,21 @@ const queryFunction = new GenericSnowflake("snowflake.athenaQueryUDTF", {
     deleteBeforeReplace: true,
     replaceOnChanges: ["*"]
 });
+
+const apiPolicy = new aws.apigateway.RestApiPolicy("rest.snowflakePolicy", {
+  restApiId:  restApi.id,
+  policy: pulumi.all([currentAccount, restApi.id, currentRegion, snowflakeExternalFunctionInvocationRole.name]).apply(([accountId, apiGatewayId, currentRegion, invocationRole]) => JSON.stringify({
+    Version: "2012-10-17",
+    Statement: [{
+        "Effect": "Allow",
+        "Principal": {
+            "AWS": `arn:aws:sts::${accountId}:assumed-role/${invocationRole}/snowflake`
+        },
+        "Action": "execute-api:Invoke",
+        "Resource": `arn:aws:execute-api:${currentRegion}:${accountId}:${apiGatewayId}/*`
+    }]
+  }))
+}, {dependsOn: [snowflakeExternalFunctionInvocationRole, queryFunction]});
 
 
 function file(fileName: string): string {
