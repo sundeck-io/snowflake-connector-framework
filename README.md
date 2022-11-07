@@ -38,6 +38,11 @@ This directory holds a pulumi deployment that allows Snowflake users to query al
    # means you've missed a login window. Check all your tabs!
    #
    pulumi up -y
+   #
+   # If the above fails on rest.apiPolicy OR rest.snowflakePolicy with an error message similar 
+   # to "BadRequestException: Invalid policy document. Please check the policy syntax and 
+   # ensure that Principals are valid.", this appears to be an eventual consistency exception. 
+   # In those cases, after the command finishes, just try running `up` again
    ```
    
 ## Query MySQL (or any Athena source)

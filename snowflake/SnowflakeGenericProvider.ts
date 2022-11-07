@@ -51,7 +51,7 @@ class SnowflakeProvider implements pulumi.dynamic.ResourceProvider {
         await this.connectIfNotConnected();
         await runsql(this.connection, inputs.database, inputs.schema, `CREATE ${inputs.type} ${getId(inputs)}(${createArgString(inputs)}) ${inputs.theRest}`);
         const output = { id: getId(inputs) , outs: {database: inputs.database, schema: inputs.schema, name: inputs.name, type: inputs.type, theRest: inputs.theRest, args: inputs.args}};
-        pulumi.log.info(JSON.stringify(output));
+        pulumi.log.debug(JSON.stringify(output));
         return output;
     }
 

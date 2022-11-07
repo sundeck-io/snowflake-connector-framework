@@ -84,42 +84,6 @@ const snowflakeApiIntegration = pulumi.all([restApi.id, currentRegion, currentAc
     enabled: true,
 }));
 
-// Create a role that gives Snowflake access to our rest api.
-const snowflakeExternalFunctionInvocationRole = new aws.iam.Role("rest.snowflakeInvocationRole", {
-    name: functionInvocationRoleName,
-    assumeRolePolicy: pulumi.all([snowflakeApiIntegration.apiAwsIamUserArn, snowflakeApiIntegration.apiAwsExternalId]).apply(([role, externalId]) => JSON.stringify({
-        Version: "2012-10-17",
-        Statement: [{
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": role
-            },
-            "Action": "sts:AssumeRole",
-            "Condition": {
-                "StringEquals": {
-                    "sts:ExternalId": externalId
-                }
-            }
-        }],
-    }))
-});
-
-const restApiPolicy = new aws.apigateway.RestApiPolicy("rest.apiPolicy", {
-    restApiId: restApi.id,
-    policy: pulumi.all([currentAccount, snowflakeExternalFunctionInvocationRole.name, restApi.arn]).apply(([accountId, role, arn]) => JSON.stringify({
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": `arn:aws:sts::${accountId}:assumed-role/${role}/snowflake`
-                },
-                "Action": "execute-api:Invoke",
-                "Resource": arn + "/*"
-            }]
-    }))
-});
-
 // Create an athena invocation resource
 const athenaResource = new aws.apigateway.Resource("rest.athenaResource", {
     restApi: restApi.id,
@@ -149,13 +113,6 @@ const postMethod200Response = new aws.apigateway.MethodResponse("rest.athena200R
     }
 });
 
-const athenaPostIntegrationResponse = new aws.apigateway.IntegrationResponse("rest.athenaPostIntegrationResponse", {
-    restApi: restApi.id,
-    resourceId: athenaResource.id,
-    httpMethod: postMethod.httpMethod,
-    statusCode: postMethod200Response.statusCode
-});
-
 // define a integration operation that adds a header and converts a query string to a header.
 const gatewayIntegration = new aws.apigateway.Integration("rest.requestIntegration", {
     restApi: restApi.id,
@@ -171,6 +128,13 @@ const gatewayIntegration = new aws.apigateway.Integration("rest.requestIntegrati
     },
     passthroughBehavior: "WHEN_NO_MATCH"
 });
+
+const athenaPostIntegrationResponse = new aws.apigateway.IntegrationResponse("rest.athenaPostIntegrationResponse", {
+    restApi: restApi.id,
+    resourceId: athenaResource.id,
+    httpMethod: postMethod.httpMethod,
+    statusCode: postMethod200Response.statusCode
+}, {dependsOn: gatewayIntegration});
 
 // deploy the rest api.
 const apiDeployment = new aws.apigateway.Deployment("rest.deployment", {
@@ -378,21 +342,57 @@ const mysqlCatalog = new aws.athena.DataCatalog("athena.lambda.catalog", {
     type: "LAMBDA",
 });
 
+// Create a role that gives Snowflake access to our rest api.
+const snowflakeExternalFunctionInvocationRole = new aws.iam.Role("rest.snowflakeInvocationRole", {
+    name: functionInvocationRoleName,
+    assumeRolePolicy: pulumi.all([snowflakeApiIntegration.apiAwsIamUserArn, snowflakeApiIntegration.apiAwsExternalId]).apply(([role, externalId]) => JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [{
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": role
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": externalId
+                }
+            }
+        }],
+    }))
+}, {dependsOn: snowflakeApiIntegration});
+
+const restApiPolicy = new aws.apigateway.RestApiPolicy("rest.apiPolicy", {
+    restApiId: restApi.id,
+    policy: pulumi.all([currentAccount, snowflakeExternalFunctionInvocationRole.name, restApi.arn]).apply(([accountId, role, arn]) => JSON.stringify({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": `arn:aws:sts::${accountId}:assumed-role/${role}/snowflake`
+                },
+                "Action": "execute-api:Invoke",
+                "Resource": arn + "/*"
+            }]
+    }))
+}, {dependsOn: [prodStage, snowflakeExternalFunctionInvocationRole, restApi]});
+
 
 const apiPolicy = new aws.apigateway.RestApiPolicy("rest.snowflakePolicy", {
   restApiId:  restApi.id,
-  policy: pulumi.all([currentAccount, restApi.id, currentRegion]).apply(([accountId, apiGatewayId, currentRegion]) => JSON.stringify({
+  policy: pulumi.all([currentAccount, restApi.id, currentRegion, snowflakeExternalFunctionInvocationRole.name]).apply(([accountId, apiGatewayId, currentRegion, invocationRole]) => JSON.stringify({
     Version: "2012-10-17",
     Statement: [{
         "Effect": "Allow",
         "Principal": {
-            "AWS": `arn:aws:sts::${accountId}:assumed-role/${functionInvocationRoleName}/snowflake`
+            "AWS": `arn:aws:sts::${accountId}:assumed-role/${invocationRole}/snowflake`
         },
         "Action": "execute-api:Invoke",
         "Resource": `arn:aws:execute-api:${currentRegion}:${accountId}:${apiGatewayId}/prod/POST/athena`
     }]
   }))
-});
+}, {dependsOn: [prodStage, snowflakeExternalFunctionInvocationRole]});
 
 const athenaExternalFunction = new GenericSnowflake("snowflake.athenaExternalFunction", {
     type: "EXTERNAL FUNCTION",
