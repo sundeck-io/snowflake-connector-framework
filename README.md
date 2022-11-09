@@ -38,18 +38,13 @@ This directory holds a pulumi deployment that allows Snowflake users to query al
    # means you've missed a login window. Check all your tabs!
    #
    pulumi up -y
-   #
-   # If the above fails on rest.apiPolicy OR rest.snowflakePolicy with an error message similar 
-   # to "BadRequestException: Invalid policy document. Please check the policy syntax and 
-   # ensure that Principals are valid.", this appears to be an eventual consistency exception. 
-   # In those cases, after the command finishes, just try running `up` again
    ```
    
 ## Query MySQL (or any Athena source)
 1. Go into Snowflake Snowsight (or your preferred SQL tool).
 1. Execute a query in Snowflake against your new MySQL instance.
    ```sql
-   use snowflake_connectors.athena;
+   use sundeck_connectors.athena;
    select * from table(query_athena($$ 
      select * from mysql.information_schema.tables
    $$, 100));

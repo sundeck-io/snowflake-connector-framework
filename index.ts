@@ -10,7 +10,6 @@ import {GenericSnowflake} from "./snowflake/SnowflakeGenericProvider";
 ///////////////////////////////////////////////////////////////////////////
 // Default names for objects.
 const functionInvocationRoleName = "SNOWFLAKE_CONNECTOR_INBOUND_REST_ROLE";
-const athenaRoleName = "SNOWFLAKE_CONNECTOR_ASSUME_ATHENA";
 const connectorsDatabaseName = "SUNDECK_CONNECTORS";
 const lambdaFunctionName = "mysql";
 ///////////////////////////////////////////////////////////////////////////
@@ -19,7 +18,7 @@ const identity = aws.getCallerIdentity({});
 const currentRegion = pulumi.output(aws.getRegion()).name;
 const currentAccount = identity.then(c => c.accountId);
 const vpc = awsx.ec2.Vpc.getDefault();
-export const vpcId = vpc.id;
+const vpcId = vpc.id;
 
 
 // Create an AWS resource (S3 Bucket) !!NOTE!! that this is declared that it will delete on pulumi down.
@@ -40,7 +39,7 @@ const schema = new snowflake.Schema("snowflake.schema", {database: db.name, name
 
 // Create a role that will be applied to api requests so that they can use Athena
 const athenaRole = new aws.iam.Role("athena.role", {
-    name: athenaRoleName,
+    namePrefix: "athenaAssumeRole",
     assumeRolePolicy: JSON.stringify({
         Version: "2012-10-17",
         Statement: [        {
@@ -136,20 +135,6 @@ const athenaPostIntegrationResponse = new aws.apigateway.IntegrationResponse("re
     statusCode: postMethod200Response.statusCode
 }, {dependsOn: gatewayIntegration});
 
-// deploy the rest api.
-const apiDeployment = new aws.apigateway.Deployment("rest.deployment", {
-    restApi: restApi.id,
-    triggers: {
-        redeployment: restApi.body.apply(body => JSON.stringify(body)).apply(toJSON => crypto.createHash('sha1').update(String(toJSON)).digest('hex')),
-    },
-}, {dependsOn: [postMethod200Response, athenaPostIntegrationResponse]});
-
-// define a stage to deploy to.
-const prodStage = new aws.apigateway.Stage("rest.prodStage", {
-    deployment: apiDeployment.id,
-    restApi: restApi.id,
-    stageName: "prod",
-});
 
 // deploy a javascript request translator
 const requestTranslator = new snowflake.Function("snowflake.requestTranslator", {
@@ -318,7 +303,7 @@ const mysqlFunction = new aws.lambda.Function("athena.mysql.connector", {
     }
 });
 
-
+// Ensure that Athena can invoke the mysql connector.
 const allowLambdaInvoke = new aws.iam.RolePolicy("athena.lambda.invoke", {
     role: athenaRole,
     policy: pulumi.all([mysqlFunction.arn]).apply(([arn]) => JSON.stringify({
@@ -331,7 +316,7 @@ const allowLambdaInvoke = new aws.iam.RolePolicy("athena.lambda.invoke", {
     })),
 });
 
-
+// Register the mysql connector lambda in the Athena catalog.
 const mysqlCatalog = new aws.athena.DataCatalog("athena.lambda.catalog", {
     name: mysqlFunction.name,
     description: "Mysql connection",
@@ -362,38 +347,7 @@ const snowflakeExternalFunctionInvocationRole = new aws.iam.Role("rest.snowflake
     }))
 }, {dependsOn: snowflakeApiIntegration});
 
-const restApiPolicy = new aws.apigateway.RestApiPolicy("rest.apiPolicy", {
-    restApiId: restApi.id,
-    policy: pulumi.all([currentAccount, snowflakeExternalFunctionInvocationRole.name, restApi.arn]).apply(([accountId, role, arn]) => JSON.stringify({
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": `arn:aws:sts::${accountId}:assumed-role/${role}/snowflake`
-                },
-                "Action": "execute-api:Invoke",
-                "Resource": arn + "/*"
-            }]
-    }))
-}, {dependsOn: [prodStage, snowflakeExternalFunctionInvocationRole, restApi]});
-
-
-const apiPolicy = new aws.apigateway.RestApiPolicy("rest.snowflakePolicy", {
-  restApiId:  restApi.id,
-  policy: pulumi.all([currentAccount, restApi.id, currentRegion, snowflakeExternalFunctionInvocationRole.name]).apply(([accountId, apiGatewayId, currentRegion, invocationRole]) => JSON.stringify({
-    Version: "2012-10-17",
-    Statement: [{
-        "Effect": "Allow",
-        "Principal": {
-            "AWS": `arn:aws:sts::${accountId}:assumed-role/${invocationRole}/snowflake`
-        },
-        "Action": "execute-api:Invoke",
-        "Resource": `arn:aws:execute-api:${currentRegion}:${accountId}:${apiGatewayId}/prod/POST/athena`
-    }]
-  }))
-}, {dependsOn: [prodStage, snowflakeExternalFunctionInvocationRole]});
-
+// The function that will query Athena
 const athenaExternalFunction = new GenericSnowflake("snowflake.athenaExternalFunction", {
     type: "EXTERNAL FUNCTION",
     name: "ATHENA_EXTERNAL_FUNCTION",
@@ -435,7 +389,37 @@ const queryFunction = new GenericSnowflake("snowflake.athenaQueryUDTF", {
     replaceOnChanges: ["*"]
 });
 
+const apiPolicy = new aws.apigateway.RestApiPolicy("rest.snowflakePolicy", {
+    restApiId:  restApi.id,
+    policy: pulumi.all([currentAccount, restApi.id, currentRegion, snowflakeExternalFunctionInvocationRole.name]).apply(([accountId, apiGatewayId, currentRegion, invocationRole]) => JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [{
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": `arn:aws:sts::${accountId}:assumed-role/${invocationRole}/snowflake`
+            },
+            "Action": "execute-api:Invoke",
+            "Resource": `arn:aws:execute-api:${currentRegion}:${accountId}:${apiGatewayId}/*`
+        }]
+    }))
+}, {dependsOn: [mysqlFunction /** add lambda wait here to minimize race problems **/]});
 
+// deploy the rest api.
+const apiDeployment = new aws.apigateway.Deployment("rest.deployment", {
+    restApi: restApi.id,
+    triggers: {
+        redeployment: restApi.body.apply(body => JSON.stringify(body)).apply(toJSON => crypto.createHash('sha1').update(String(toJSON)).digest('hex')),
+    },
+}, {dependsOn: [apiPolicy, postMethod200Response, athenaPostIntegrationResponse]});
+
+// define a stage to deploy to.
+const prodStage :aws.apigateway.Stage = new aws.apigateway.Stage("rest.prodStage", {
+    deployment: apiDeployment.id,
+    restApi: restApi.id,
+    stageName: "prod"
+}, {dependsOn: [apiPolicy]});
+
+// internal function to read in as a string a file (used for snowflake object imports)
 function file(fileName: string): string {
     return fs.readFileSync(fileName, 'utf8');
 }

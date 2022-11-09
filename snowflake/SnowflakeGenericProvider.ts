@@ -74,7 +74,7 @@ class SnowflakeProvider implements pulumi.dynamic.ResourceProvider {
 
     async delete(id: ID, inputs: SnowflakeInputs) {
         await this.connectIfNotConnected();
-        pulumi.log.info(`database: ${inputs.database} schema: ${inputs.schema}, args: ${(JSON.stringify(inputs.args))}, name: ${inputs.name}`);
+        pulumi.log.debug(`database: ${inputs.database} schema: ${inputs.schema}, args: ${(JSON.stringify(inputs.args))}, name: ${inputs.name}`);
         await runsql(this.connection, inputs.database, inputs.schema, `DROP FUNCTION ${getId(inputs)}(${dropArgString(inputs)}) `);
     }
 
