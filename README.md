@@ -73,6 +73,6 @@ This directory holds a pulumi deployment that allows Snowflake users to query al
     <dt>What if I want to configure things manually?</dt>
     <dd>Pulumi is largely declarative. Most of the deployment code should readable even if you've never used Pulumi</dd>
    <dt>What does Sundeck do?</dt>
-<dd>We're working on some new ways to enhance Snowflake. More coming soon. Go to our [website](https://sundeck.io) and sign up for our mailing list to hear more as we progress.</dd>
+<dd>We're working on some new ways to enhance Snowflake. More coming soon. Go to our <a href="https://sundeck.io">website</a> and sign up for our mailing list to hear more as we progress.</dd>
 </dl>
 
