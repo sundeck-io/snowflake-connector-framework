@@ -1,4 +1,4 @@
-# A Source Connector Framework for MySQL
+# A Source Connector Framework for Snowflake
 
 This directory holds a pulumi deployment that allows Snowflake users to query alternative sources (specifically MySQL). You can learn more about this by reading our series of [blog posts](https://www.sundeck.io/blog/creating-a-source-connector-framework-for-snowflake) 
 
